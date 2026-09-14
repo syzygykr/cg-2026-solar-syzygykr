@@ -23,6 +23,7 @@
 ### task 1
 
 **JSON**
+```
 {
   "range": {
     "x": "420000",
@@ -56,6 +57,18 @@
         0.82
       ],
       "steps": [
+        {
+          "type": "Ry",
+          "args": [
+            "5"
+          ]
+        },
+        {
+          "type": "Rz",
+          "args": [
+            "1.02*t"
+          ]
+        },
         {
           "type": "T",
           "args": [
@@ -106,23 +119,21 @@
           "args": [
             "0.013"
           ]
-        },
-        {
-          "type": "Rx",
-          "args": [
-            "0"
-          ]
         }
       ]
     }
   ]
 }
-
+```
 
 **설명**
+실제 사이즈와 공전속도를 기반으로 1:1 스케일로 구현한 지구 - 허블우주망원경 - 달 입니다.
+달과 지구 사이의 거리가 다른 물체들의 크기에 비해 압도적으로 거대해서 인공위성은 보이지 않으며, 달은 시뮬레이션이 이루어 지는 시간동안 매우 낮은 각속도로 회전하여 공전궤도의 1/8도 돌지 못하는 모습을 관측할 수 있었습니다.
+
+Task1의 구현을 통해 실제 물리적 규모를 그대로 적용할 경우, 인간의 시각적 관찰 범위와 일반적인 시뮬레이션 시간만으로는 천체 간 거리와 공전 운동을 직관적으로 표현하기 어렵다는 점을 확인하였습니다.
 
 **URL**
-https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiNDIwMDAwIiwieSI6IjQyMDAwMCIsInoiOiI0MjAwMDAifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyI2MzcxIl19XX0seyJpZCI6Im1vb24iLCJuYW1lIjoi64usIiwiY29sb3IiOlswLjc4LDAuNzgsMC44Ml0sInN0ZXBzIjpbeyJ0eXBlIjoiVCIsImFyZ3MiOlsiMzg1MDAwIiwiMCIsIjAiXX0seyJ0eXBlIjoiU3UiLCJhcmdzIjpbIjE3MzciXX1dfSx7ImlkIjoic2F0IiwibmFtZSI6IuyduOqzteychOyEsSIsImNvbG9yIjpbMC45NSwwLjcyLDAuMzVdLCJzdGVwcyI6W3sidHlwZSI6IlJ5IiwiYXJncyI6WyIyOC40NyJdfSx7InR5cGUiOiJSeiIsImFyZ3MiOlsidCo3LjY0Il19LHsidHlwZSI6IlQiLCJhcmdzIjpbIjY4NDkiLCIwIiwiMCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMC4wMTMiXX0seyJ0eXBlIjoiUngiLCJhcmdzIjpbIjAiXX1dfV19
+https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiNDIwMDAwIiwieSI6IjQyMDAwMCIsInoiOiI0MjAwMDAifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyI2MzcxIl19XX0seyJpZCI6Im1vb24iLCJuYW1lIjoi64usIiwiY29sb3IiOlswLjc4LDAuNzgsMC44Ml0sInN0ZXBzIjpbeyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjUiXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjEuMDIqdCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyIzODUwMDAiLCIwIiwiMCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMTczNyJdfV19LHsiaWQiOiJzYXQiLCJuYW1lIjoi7J246rO17JyE7ISxIiwiY29sb3IiOlswLjk1LDAuNzIsMC4zNV0sInN0ZXBzIjpbeyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjI4LjQ3Il19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyJ0KjcuNjQiXX0seyJ0eXBlIjoiVCIsImFyZ3MiOlsiNjg0OSIsIjAiLCIwIl19LHsidHlwZSI6IlN1IiwiYXJncyI6WyIwLjAxMyJdfV19XX0%3D
 
 **IMAGE**
 ![Task 1 — 실제 비율로 배치한 지구와 인공위성](images/task1.png)
@@ -143,7 +154,7 @@ https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6
 **IMAGE**
 ![Task 2 —  NDC 범위에 맞춰 배치한 지구와 인공위성](images/task1.png)
 
-- [Task 2 실행하기](https://<username>.github.io/cg-2026-solar/week2/task1.html)
+- [Task 2 실행하기](https://<username>.github.io/cg-2026-solar/week2/task2.html)
 
 
 ### task 3
@@ -157,5 +168,5 @@ https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6
 **IMAGE**
 ![Task 3 — 보는 사람을 위해 조절한 지구와 인공위성](images/task1.png)
 
-- [Task 3 실행하기](https://<username>.github.io/cg-2026-solar/week2/task1.html)
+- [Task 3 실행하기](https://<username>.github.io/cg-2026-solar/week2/task3.html)
 

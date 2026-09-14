@@ -63,6 +63,8 @@ function earthMatrix(t) {
 /* 달 — 실습 도구에서 놓은 순서 그대로입니다 */
 function moonMatrix(t) {
   let M = M4.identity(M4.create());
+  M = M4.rotateY(M, M, deg(5));   // 회전 Ry(5도)
+  M = M4.rotateZ(M, M, deg(1.02 * t));   // 회전 Rz(1.02*t도)
   M = M4.translate(M, M, [385000, 0, 0]);   // 이동 T(385000, 0, 0)
   M = M4.scale(M, M, [1737, 1737, 1737]);   // 크기(균등) 1737배
   return M;
@@ -75,7 +77,6 @@ function satelliteMatrix(t) {
   M = M4.rotateZ(M, M, deg(t * 7.64));   // 회전 Rz(t*7.64도)
   M = M4.translate(M, M, [6849, 0, 0]);   // 이동 T(6849, 0, 0)
   M = M4.scale(M, M, [0.013, 0.013, 0.013]);   // 크기(균등) 0.013배
-  M = M4.rotateX(M, M, deg(0));   // 회전 Rx(0도)
   return M;
 }
 
