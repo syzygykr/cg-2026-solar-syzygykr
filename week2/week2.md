@@ -20,7 +20,7 @@
 
 ## 내가 넣은 변환
 
-### task 1
+## task 1 - 실제 비율 적용 
 
 **JSON**
 ```
@@ -82,6 +82,12 @@
           "args": [
             "1737"
           ]
+        },
+        {
+          "type": "Rz",
+          "args": [
+            "180"
+          ]
         }
       ]
     },
@@ -119,6 +125,12 @@
           "args": [
             "0.013"
           ]
+        },
+        {
+          "type": "Rz",
+          "args": [
+            "90"
+          ]
         }
       ]
     }
@@ -151,7 +163,7 @@ Task1의 구현을 통해 실제 물리적 규모를 그대로 적용할 경우,
 ```
 
 **URL**
-https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiNDIwMDAwIiwieSI6IjQyMDAwMCIsInoiOiI0MjAwMDAifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyI2MzcxIl19XX0seyJpZCI6Im1vb24iLCJuYW1lIjoi64usIiwiY29sb3IiOlswLjc4LDAuNzgsMC44Ml0sInN0ZXBzIjpbeyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjUiXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjEuMDIqdCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyIzODUwMDAiLCIwIiwiMCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMTczNyJdfV19LHsiaWQiOiJzYXQiLCJuYW1lIjoi7J246rO17JyE7ISxIiwiY29sb3IiOlswLjk1LDAuNzIsMC4zNV0sInN0ZXBzIjpbeyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjI4LjQ3Il19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyJ0KjcuNjQiXX0seyJ0eXBlIjoiVCIsImFyZ3MiOlsiNjg0OSIsIjAiLCIwIl19LHsidHlwZSI6IlN1IiwiYXJncyI6WyIwLjAxMyJdfV19XX0%3D
+https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiNDIwMDAwIiwieSI6IjQyMDAwMCIsInoiOiI0MjAwMDAifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyI2MzcxIl19XX0seyJpZCI6Im1vb24iLCJuYW1lIjoi64usIiwiY29sb3IiOlswLjc4LDAuNzgsMC44Ml0sInN0ZXBzIjpbeyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjUiXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjEuMDIqdCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyIzODUwMDAiLCIwIiwiMCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMTczNyJdfSx7InR5cGUiOiJSeiIsImFyZ3MiOlsiMTgwIl19XX0seyJpZCI6InNhdCIsIm5hbWUiOiLsnbjqs7XsnITshLEiLCJjb2xvciI6WzAuOTUsMC43MiwwLjM1XSwic3RlcHMiOlt7InR5cGUiOiJSeSIsImFyZ3MiOlsiMjguNDciXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbInQqNy42NCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyI2ODQ5IiwiMCIsIjAiXX0seyJ0eXBlIjoiU3UiLCJhcmdzIjpbIjAuMDEzIl19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyI5MCJdfV19XX0%3D
 
 
 **IMAGE**
@@ -160,32 +172,61 @@ https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6
 - [Task 1 실행하기](https://syzygykr.github.io/cg-2026-solar-syzygykr/week2/task1.html)
 
 
-### task 2
+## task 2 - NDC 범위에 맞춰 배치
 
 **JSON**
+```
+
+```
 
 
 
 **설명**
+```
+task1의 결과물에 오직 배율만을 적용합니다.
+
+우리는 지구~달을 -1~1 거리에 두고 싶습니다.
+
+이 말은, (지구-달 거리 + 달 반지름) 이 식이 총 1 만큼의 거리를 가지게끔 정규화를 해야 한다는 것이고
+
+그 말은 동시에 1/386737 배율을 적용해야 한다는 것입니다.
+
+s = 1/386737 = 0.000002585 입니다.
+제발 언더플로우가 발생하지 않기를 기도하며 배율을 적용해보겠습니다.
+또한 모든 축에 대해서 동일비율로 배율을 적용해야 하니 그냥 크기(균등)으로 처리해도 됩니다.
+
+결과는 성공적입니다.
+
+task1과 완벽하게 동일한 구도가 범위만 축소되어 재현되었습니다.
+
+
+
+```
 
 **URL**
 
 **IMAGE**
-![Task 2 —  NDC 범위에 맞춰 배치한 지구와 인공위성](images/task1.png)
+![Task 2 —  NDC 범위에 맞춰 배치한 지구와 인공위성](images/task2.png)
 
-- [Task 2 실행하기](https://<username>.github.io/cg-2026-solar/week2/task2.html)
+- [Task 2 실행하기](https://syzygykr.github.io/cg-2026-solar-syzygykr/week2/task2.html)
 
 
-### task 3
+## task 3 - 보는 사람을 위해 조절
 
 **JSON**
+```
+
+```
 
 **설명**
+```
+
+```
 
 **URL**
 
 **IMAGE**
-![Task 3 — 보는 사람을 위해 조절한 지구와 인공위성](images/task1.png)
+![Task 3 — 보는 사람을 위해 조절한 지구와 인공위성](images/task3.png)
 
-- [Task 3 실행하기](https://<username>.github.io/cg-2026-solar/week2/task3.html)
+- [Task 3 실행하기](https://syzygykr.github.io/cg-2026-solar-syzygykr/week2/task3.html)
 
