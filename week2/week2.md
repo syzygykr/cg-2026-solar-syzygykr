@@ -147,6 +147,8 @@
   - 지구와 달의 거리에 비해 지구와 달은 너무 작고, 인공위성은 그보다 더 작음. 따라서 지구만 겨우 관측 가능한 형태임.
 - 표시되는 달의 공전 궤도가 너무 짧음.
   - 달의 실제 공전속도를 기반으로 실제 초당 이동량을 구현함. 따라서 달은 시뮬레이션이 이루어 지는 시간동안 매우 낮은 각속도로 회전하여 총 회전량이 공전궤도의 1/8에도 미치지 못하는 모습을 관측할 수 있음.
+- 깃허브 배포판에서 지구만 너무 크게 표시되고 다른 요소들은 관찰 불가
+  - 420000km를 축 크기로 잡아서 발생한 문제. 최대 카메라 줌과 카메라 거리 문제로 인해 배포판에서는 정상적인 구도를 확인할 수 없음. 수업자료 링크와 스크린샷에서는 정상적으로 구도 확인 가능. 또는 코드를 수정해 초기 카메라 위치와 최대 줌아웃 한도를 조정하여 해결 가능.
 
 
 **설정한 변수: 실제와 동일한 값으로 설정함.**
@@ -178,7 +180,7 @@
 달·위성이 지구를 향하게 만든 것은 어느 변환 단계 덕분인가?
  - 가장 오른편에 추가한 z축 회전이 그 역할을 담당함. 달은 180도 회전시켜 화살표가 항상 지구를 향하고, 인공위성은(우주망원경이므로) 90도 회전시켜 지구의 반대쪽을 관측하는 모습을 묘사함.
 
-**URL**
+**URL: 420000km 좌표계로 설정하여 링크에서 결과물 확인 가능**
 https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiNDIwMDAwIiwieSI6IjQyMDAwMCIsInoiOiI0MjAwMDAifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyI2MzcxIl19XX0seyJpZCI6Im1vb24iLCJuYW1lIjoi64usIiwiY29sb3IiOlswLjc4LDAuNzgsMC44Ml0sInN0ZXBzIjpbeyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjUiXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjEuMDIqdCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyIzODUwMDAiLCIwIiwiMCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMTczNyJdfSx7InR5cGUiOiJSeiIsImFyZ3MiOlsiMTgwIl19XX0seyJpZCI6InNhdCIsIm5hbWUiOiLsnbjqs7XsnITshLEiLCJjb2xvciI6WzAuOTUsMC43MiwwLjM1XSwic3RlcHMiOlt7InR5cGUiOiJSeSIsImFyZ3MiOlsiMjguNDciXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbInQqNy42NCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyI2ODQ5IiwiMCIsIjAiXX0seyJ0eXBlIjoiU3UiLCJhcmdzIjpbIjAuMDEzIl19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyI5MCJdfV19XX0%3D
 
 

@@ -378,7 +378,7 @@ cv.addEventListener('pointerup', endDrag);
 cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('wheel', e => {
   e.preventDefault();
-  cam.dist = Math.max(0.5, Math.min(9000, cam.dist * Math.exp(e.deltaY * 0.001)));
+  cam.dist = Math.max(0.5, Math.min(200, cam.dist * Math.exp(e.deltaY * 0.001)));
 }, { passive: false });
 
 /* z 축이 위인 좌표계입니다 (실습 도구와 같습니다) */
