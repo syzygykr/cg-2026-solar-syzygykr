@@ -17,7 +17,7 @@ A Simple solar system code with WebGL2.
 
 ## 3주차 | 나만의 행성 디자인하기
 
-파일명:
+파일명: 
 
 링크: 
 
