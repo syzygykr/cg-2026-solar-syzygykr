@@ -102,23 +102,29 @@ void main() {
   vec3 emission = lamp * facility * blink * (0.30 + 0.55 * seam);
 
   // 3. 물체 좌표계에 고정된 거대한 원형 레이저 발사 장치
-  vec3 dishDir = normalize(vec3(0.48, 0.18, 0.86)); // 이 방향을 바꾸면 장치 위치가 바뀐다.
-  float dishMask = 1.0 - smoothstep(0.48, 0.52, acos(clamp(dot(S, dishDir), -1.0, 1.0)));
+  vec3 dishDir = normalize(vec3(0.38, 0.58, 0.72)); // y를 높여 적도보다 북쪽에 둔다.
+  float dishMask = 1.0 - smoothstep(0.33, 0.37, acos(clamp(dot(S, dishDir), -1.0, 1.0)));
   vec3 dishU = normalize(cross(vec3(0.0, 1.0, 0.0), dishDir));
   vec3 dishV = cross(dishDir, dishU);
   float r = length(vec2(dot(S, dishU), dot(S, dishV)));
   float rings = 0.0;
-  rings += 1.0 - smoothstep(0.010, 0.023, abs(r - 0.13));
-  rings += 1.0 - smoothstep(0.009, 0.020, abs(r - 0.235));
-  rings += 1.0 - smoothstep(0.008, 0.018, abs(r - 0.335));
-  rings += 1.0 - smoothstep(0.007, 0.015, abs(r - 0.435));
-  float bowl = 1.0 - smoothstep(0.06, 0.37, r);
-  float lens = 1.0 - smoothstep(0.0, 0.070, r);
+  rings += 1.0 - smoothstep(0.008, 0.018, abs(r - 0.10));
+  rings += 1.0 - smoothstep(0.007, 0.016, abs(r - 0.175));
+  rings += 1.0 - smoothstep(0.006, 0.014, abs(r - 0.250));
+  rings += 1.0 - smoothstep(0.005, 0.012, abs(r - 0.325));
+  float bowl = 1.0 - smoothstep(0.045, 0.28, r);
+  float lens = 1.0 - smoothstep(0.0, 0.052, r);
   metal = mix(metal, vec3(0.018, 0.028, 0.040), dishMask * bowl);
   metal += dishMask * rings * vec3(0.13, 0.17, 0.20);
   emission += dishMask * (rings * vec3(0.025, 0.07, 0.10) + lens * (0.72 + 0.28 * sin(uTime * 2.0)) * vec3(0.10, 0.48, 0.82));
 
-  // 4. 기존 방향성 조명에 금속 하이라이트와 발광을 합성한다.
+  // 4. 적도 띠: S.y가 0에 가까운 표면만 칠흑색으로 만든다.
+  //    dishMask를 빼므로 북쪽 레이저 장치는 띠의 영향을 받지 않는다.
+  float equatorBand = 1.0 - smoothstep(0.025, 0.035, abs(S.y));
+  metal = mix(metal, vec3(0.002, 0.003, 0.006), equatorBand * (1.0 - dishMask));
+  emission *= 1.0 - equatorBand * (1.0 - dishMask);
+
+  // 5. 기존 방향성 조명에 금속 하이라이트와 발광을 합성한다.
   float diff = max(dot(N, L), 0.0);
   vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
   float specular = pow(max(dot(N, H), 0.0), 36.0) * 0.16;
@@ -128,7 +134,8 @@ void main() {
 // 설명: vSurf는 모델 변환 전의 법선이므로 패턴이 행성 자전과 함께 움직인다.
 // hash21은 패널별 무작위 값, smoothstep은 부드러운 홈과 원형 경계, sin과 uTime은
 // 독립적인 점멸·렌즈 맥동을 만든다. dot/acos/cross는 구면 위 레이저 장치의 위치,
-// 접평면, 동심원 반지름을 계산한다. emission은 일반 조명과 따로 더해 어두운 면에서도 보인다.
+// 접평면, 동심원 반지름을 계산한다. equatorBand는 적도를 검게 만들며 dishMask로 레이저를 보호한다.
+// emission은 일반 조명과 따로 더해 어두운 면에서도 보인다.
 `;
 
 const canvas = document.getElementById('glcanvas');
