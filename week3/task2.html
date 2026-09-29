@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3주차 실습 2 — 인공 행성</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070d; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="glcanvas"></canvas>
+<script>
+'use strict';
+
+// 구체 메시: 위치와 법선만 필요하다. 표면 색은 프래그먼트 셰이더가 계산한다.
+function makeSphere(radius, rows, cols) {
+  const positions = [], normals = [], indices = [];
+  for (let i = 0; i <= rows; i++) {
+    const phi = Math.PI * i / rows;
+    for (let j = 0; j <= cols; j++) {
+      const theta = 2 * Math.PI * j / cols;
+      const x = Math.sin(phi) * Math.cos(theta);
+      const y = Math.cos(phi);
+      const z = Math.sin(phi) * Math.sin(theta);
+      positions.push(x * radius, y * radius, z * radius);
+      normals.push(x, y, z);
+    }
+  }
+  const stride = cols + 1;
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+    const a = i * stride + j, b = a + stride;
+    indices.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+  return { positions: new Float32Array(positions), normals: new Float32Array(normals), indices: new Uint16Array(indices) };
+}
+
+const VS_SOURCE = `#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNormal;
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+out vec3 vNormal;
+out vec3 vSurf;
+void main() {
+  vNormal = mat3(uModel) * aNormal;
+  vSurf = aNormal;
+  gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
+}`;
+
+const FS_SOURCE = `#version 300 es
+precision highp float;
+in vec3 vNormal;
+in vec3 vSurf;
+uniform float uTime;
+out vec4 fragColor;
+
+//____________________________________________________________________________
+// [변경된 부분] 기계식 인공 행성을 그리는 프래그먼트 셰이더
+//____________________________________________________________________________
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+// 큐브 투영을 사용해 극지방에서 격자가 과도하게 압축되는 현상을 줄인다.
+vec2 cubePanelUV(vec3 p) {
+  vec3 a = abs(p);
+  if (a.x >= a.y && a.x >= a.z) return p.x > 0.0 ? p.zy / a.x : vec2(-p.z, p.y) / a.x;
+  if (a.y >= a.z) return p.y > 0.0 ? vec2(p.x, -p.z) / a.y : vec2(p.x, p.z) / a.y;
+  return p.z > 0.0 ? vec2(p.x, p.y) / a.z : vec2(-p.x, p.y) / a.z;
+}
+
+float panelEdge(vec2 uv, float cells) {
+  vec2 f = fract(uv * cells);
+  return min(min(f.x, f.y), min(1.0 - f.x, 1.0 - f.y));
+}
+
+void main() {
+  vec3 N = normalize(vNormal);
+  vec3 S = normalize(vSurf);
+  vec3 L = normalize(vec3(0.9, 0.25, 0.35));
+
+  // 1. 균일한 금속 패널과 어두운 홈
+  vec2 uv = cubePanelUV(S);
+  const float CELLS = 18.0;
+  vec2 panelId = floor((uv + 1.0) * 0.5 * CELLS);
+  float seam = 1.0 - smoothstep(0.018, 0.043, panelEdge((uv + 1.0) * 0.5, CELLS));
+  float variation = hash21(panelId);
+  vec3 metal = vec3(0.12, 0.145, 0.17) + (variation - 0.5) * vec3(0.055);
+  metal *= 1.0 - seam * 0.65;
+
+  // 2. 패널마다 다른 위치·주기·위상을 가진 점멸 시설등
+  vec2 local = fract((uv + 1.0) * 0.5 * CELLS) - 0.5;
+  vec2 offset = vec2(hash21(panelId + 2.1) - 0.5, hash21(panelId + 7.4) - 0.5) * 0.52;
+  float facility = 1.0 - smoothstep(0.032, 0.050, length(local - offset));
+  float lightKey = hash21(panelId + 19.7);
+  float blink = smoothstep(0.35, 0.62, sin(uTime * (1.4 + 3.1 * lightKey) + 6.28318 * hash21(panelId + 31.2)) * 0.5 + 0.5);
+  vec3 lamp = mix(vec3(0.35, 0.65, 1.0), vec3(1.0, 0.16, 0.10), step(0.84, lightKey));
+  vec3 emission = lamp * facility * blink * (0.30 + 0.55 * seam);
+
+  // 3. 물체 좌표계에 고정된 거대한 원형 레이저 발사 장치
+  vec3 dishDir = normalize(vec3(0.48, 0.18, 0.86)); // 이 방향을 바꾸면 장치 위치가 바뀐다.
+  float dishMask = 1.0 - smoothstep(0.48, 0.52, acos(clamp(dot(S, dishDir), -1.0, 1.0)));
+  vec3 dishU = normalize(cross(vec3(0.0, 1.0, 0.0), dishDir));
+  vec3 dishV = cross(dishDir, dishU);
+  float r = length(vec2(dot(S, dishU), dot(S, dishV)));
+  float rings = 0.0;
+  rings += 1.0 - smoothstep(0.010, 0.023, abs(r - 0.13));
+  rings += 1.0 - smoothstep(0.009, 0.020, abs(r - 0.235));
+  rings += 1.0 - smoothstep(0.008, 0.018, abs(r - 0.335));
+  rings += 1.0 - smoothstep(0.007, 0.015, abs(r - 0.435));
+  float bowl = 1.0 - smoothstep(0.06, 0.37, r);
+  float lens = 1.0 - smoothstep(0.0, 0.070, r);
+  metal = mix(metal, vec3(0.018, 0.028, 0.040), dishMask * bowl);
+  metal += dishMask * rings * vec3(0.13, 0.17, 0.20);
+  emission += dishMask * (rings * vec3(0.025, 0.07, 0.10) + lens * (0.72 + 0.28 * sin(uTime * 2.0)) * vec3(0.10, 0.48, 0.82));
+
+  // 4. 기존 방향성 조명에 금속 하이라이트와 발광을 합성한다.
+  float diff = max(dot(N, L), 0.0);
+  vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+  float specular = pow(max(dot(N, H), 0.0), 36.0) * 0.16;
+  fragColor = vec4(metal * (0.045 + 0.95 * diff) + specular * vec3(0.38, 0.47, 0.55) + emission, 1.0);
+}
+//____________________________________________________________________________//
+// 설명: vSurf는 모델 변환 전의 법선이므로 패턴이 행성 자전과 함께 움직인다.
+// hash21은 패널별 무작위 값, smoothstep은 부드러운 홈과 원형 경계, sin과 uTime은
+// 독립적인 점멸·렌즈 맥동을 만든다. dot/acos/cross는 구면 위 레이저 장치의 위치,
+// 접평면, 동심원 반지름을 계산한다. emission은 일반 조명과 따로 더해 어두운 면에서도 보인다.
+`;
+
+const canvas = document.getElementById('glcanvas');
+const gl = canvas.getContext('webgl2');
+if (!gl) throw new Error('WebGL2를 사용할 수 없습니다.');
+function shader(type, source) {
+  const s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const program = gl.createProgram();
+gl.attachShader(program, shader(gl.VERTEX_SHADER, VS_SOURCE));
+gl.attachShader(program, shader(gl.FRAGMENT_SHADER, FS_SOURCE));
+gl.linkProgram(program);
+if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+function multiply(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    for (let k = 0; k < 4; k++) o[c * 4 + r] += a[k * 4 + r] * b[c * 4 + k];
+  return o;
+}
+function rotateX(a) { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]); }
+function rotateY(a) { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]); }
+const perspective = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,-0.25, 0,0,0,1]);
+
+const mesh = makeSphere(1.3, 64, 128);
+const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+for (const [data, loc] of [[mesh.positions, 0], [mesh.normals, 1]]) {
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
+}
+const ibo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+gl.bindVertexArray(null);
+const uTime = gl.getUniformLocation(program, 'uTime');
+const uModel = gl.getUniformLocation(program, 'uModel');
+const uViewProj = gl.getUniformLocation(program, 'uViewProj');
+const start = performance.now();
+function render() {
+  const dpr = devicePixelRatio || 1, w = Math.floor(canvas.clientWidth * dpr), h = Math.floor(canvas.clientHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h); gl.enable(gl.DEPTH_TEST); gl.clearColor(0.02, 0.02, 0.05, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  const t = (performance.now() - start) / 1000, aspect = w / h;
+  const scale = new Float32Array([1/(1.45*aspect),0,0,0, 0,1/1.45,0,0, 0,0,-1/20,0, 0,0,0,1]);
+  const viewProj = multiply(scale, multiply(perspective, new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-4,1])));
+  gl.useProgram(program); gl.uniform1f(uTime, t); gl.uniformMatrix4fv(uViewProj, false, viewProj);
+  gl.uniformMatrix4fv(uModel, false, multiply(rotateX(0.32), rotateY(t * 0.12)));
+  gl.bindVertexArray(vao); gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
