@@ -240,19 +240,32 @@ P3와 같이 건물 심부에 위치해 접근이 힘든 점에 직관적으로 
 
 **구현한 주요 기능**
 
-- 
-- 
-- 
-- 
+- 건물과 관찰 대상은 월드 좌표에 고정함. 카메라만 이동·회전하는 Free-Fly 방식임.
+- WASD는 카메라 기준 이동임. Space/Left Shift는 월드 Y축 상승·하강임. 이동에 deltaTime을 반영함.
+- 캔버스 클릭 시 Pointer Lock을 요청함. 마우스로 yaw/pitch를 조절함. Esc로 잠금 해제 가능함.
+- Q/E waypoint 이동 기능을 추가함. 우상단 HUD에 이전·현재·다음 Focus를 표시함.
 
 ### 6.2 P1-P6 관찰 방식
 
-[각 지점을 어떻게 선택하고 카메라가 어떻게 이동하는지 작성]
+캔버스 클릭 후 E로 P1부터 순서대로 이동함. Q는 이전 지점으로 이동함. 위치와 초기 방향을 즉시 적용함. P5는 +Z를 바라봄. P1-P4와 P6은 -Z를 바라봄. 도착 후에도 마우스 회전과 키보드 이동 가능함. `event.repeat`은 무시함. 한 입력에 한 단계만 이동함. 경계에서 순환하지 않음. 자유 이동 후에도 마지막 waypoint index를 유지함.
 
 **대표 코드**
 
 ```javascript
-// 실제 코드
+const waypoints = [
+  {name:'P1', position:[-2.3,2.0,7.8], yaw:-Math.PI/2, pitch:0},
+  {name:'P2', position:[3.1,1.3,0.5], yaw:-Math.PI/2, pitch:0},
+  {name:'P3', position:[-2.9,4.1,2.9], yaw:-Math.PI/2, pitch:0},
+  {name:'P4', position:[0.7,9.7,3.3], yaw:-Math.PI/2, pitch:0},
+  {name:'P5', position:[-0.3,5.5,-7.4], yaw:Math.PI/2, pitch:0},
+  {name:'P6', position:[11.1,1.3,4.1], yaw:-Math.PI/2, pitch:0},
+  {name:'O1', position:[10.9,4.8,14.3], yaw:-Math.PI/2, pitch:0},
+  {name:'O2', position:[29.8,4.7,-0.6], yaw:Math.PI, pitch:0}
+];
+if ((e.code === 'KeyQ' || e.code === 'KeyE') && !e.repeat) {
+  const next = state.currentWaypointIndex + (e.code === 'KeyQ' ? -1 : 1);
+  if (next >= 0 && next < waypoints.length) selectWaypoint(next);
+}
 ```
 
 ---
@@ -261,73 +274,69 @@ P3와 같이 건물 심부에 위치해 접근이 힘든 점에 직관적으로 
 
 ### 7.1 Eye
 
-`eye`는 다음과 같이 결정하였다.
+`eye`는 카메라의 현재 월드 위치임. 시작 위치는 `[3, 8, 30]`임. Waypoint 선택 시 저장된 위치로 이동함. 건물은 고정함. 입력에 따라 `eye`만 변경함.
 
-[작성]
-
-대상 위치와 `eye`의 관계:
-
-[작성]
+대상 위치와 `eye`는 독립적임. 카메라가 월드 안에서 이동함. Waypoint에서 `eye`는 저장된 관찰 위치임.
 
 ```javascript
-// eye 계산 코드
+function camera() {
+  return {
+    eye: [...state.position],
+    target: state.position.map((v, i) => v + state.front[i]),
+    up: [...state.up], fov: state.fov
+  };
+}
 ```
 
 ### 7.2 Target
 
-전체 보기에서의 `target`:
-
-[작성]
-
-상세 보기에서의 `target`:
-
-[작성]
+전체 보기에서 고정 target은 사용하지 않음. 현재 카메라 위치에서 front 방향으로 1 단위 떨어진 점을 target으로 설정함. 상세 보기와 waypoint에도 같은 규칙을 적용함. yaw/pitch가 바뀌면 front를 갱신함. target도 함께 변경됨.
 
 ```javascript
-// target 설정 코드
+const target = state.position.map((v, i) => v + state.front[i]);
+M.lookAt(view, camera.eye, camera.target, camera.up);
 ```
 
 ### 7.3 Up Vector
 
-사용한 `up`:
+사용한 월드 up:
 
 ```text
-(x, y, z)
+(0, 1, 0)
 ```
 
-이 값을 사용한 이유:
-
-[작성]
+모델의 위쪽이 월드 Y축이기 때문임. 카메라 right는 `front × worldUp`으로 계산함. 카메라 up은 `right × front`로 계산함. yaw/pitch 변화 때마다 갱신함.
 
 ### 7.4 대상 크기, FOV와 관찰 거리
 
-큰 안내판과 작은 명판을 모두 읽을 수 있도록 대상의 크기와 FOV를 고려하여 관찰 거리를 결정하였다.
+대상 크기와 FOV가 관찰 거리에 미치는 영향을 고려함. 거리는 waypoint 좌표와 자유 이동으로 정함. 자동 계산은 하지 않음.
 
 **대상 크기와 거리의 관계**
 
-[작성]
+명판은 카메라에서 멀수록 작게 보임. Waypoint를 관찰 지점 가까이에 배치함. 도착 후 자유 이동으로 거리 조정 가능함. 거리 자동 산출은 구현하지 않음.
 
 **FOV**
 
-[작성]
+기본 FOV는 45도임. 원근 투영에 사용함. 별도 줌 입력은 구현하지 않음.
 
 ```javascript
-// FOV 또는 관찰 거리 계산 코드
+state.fov = 45;
+M.perspective(projection, camera.fov * Math.PI / 180, width / height, near, far);
 ```
 
 ### 7.5 자유 회전 중심
 
 **Baseline의 회전 중심**
 
-[작성]
+Baseline은 트랙볼 궤도 관찰 방식임. 초기 회전 target은 `[3, 3, 0]`임.
 
 **Improved의 회전 중심**
 
-[작성]
+Improved에는 궤도 회전 중심이 없음. 카메라의 `position`, `yaw`, `pitch`를 직접 변경함. 건물은 고정함.
 
 **이렇게 설정한 이유**
 
-[작성]
+트랙볼 드래그의 회전축 혼란을 줄이기 위함임. 실내 접근도 쉽게 하기 위함임. 관찰자가 필요한 위치로 직접 이동함. Waypoint는 반복 관찰의 시작점임.
 
 ---
 
@@ -337,94 +346,91 @@ P3와 같이 건물 심부에 위치해 접근이 힘든 점에 직관적으로 
 
 **사용한 투영**
 
-[Perspective / Orthographic]
+Perspective(원근 투영)
 
 **선택 이유**
 
-[작성]
+P1-P6는 공간 안에서 명판을 찾아 읽는 작업임. 원근감과 깊이 이동이 필요함. 따라서 원근 투영을 사용함.
 
 ### 8.2 O1 - 전면 직교 뷰
 
 ![O1 전면 직교 뷰](./images/o1_front.png)
 
-O1에서는 두 대상의 높이와 폭을 비교하기 위해 전면 직교 뷰를 사용하였다.
+O1은 두 대상의 높이와 폭을 비교하는 과제임. 전면 직교 뷰가 비교에 적합함. 현재 improved 코드에는 전용 직교 뷰가 없음. 실제 측정값은 실행 화면에서 확인해야 함.
 
 **카메라 설정**
 
-- Eye:
-- Target:
-- Up:
-- Projection:
-- Orthographic Scale:
+- Eye: O1 전용 설정 없음
+- Target: O1 전용 설정 없음
+- Up: Free-Fly 카메라 up 벡터
+- Projection: 기본 원근 투영
+- Orthographic Scale: 해당 없음
 
 **비교 결과**
 
-- 높이:
-- 폭:
-- 판단 근거:
+- 높이: 미측정
+- 폭: 미측정
+- 판단 근거: O1 직교 카메라 및 측정 기능 미구현
 
-**전면 직교 뷰를 사용한 이유**
+**전면 직교 뷰를 사용하려는 이유**
 
-[작성]
+직교 투영은 거리별 크기 변화를 제거함. 패널 높이와 폭 비교에 적합함. 현재 코드는 기본 Free-Fly 원근 뷰만 제공함.
 
 **두 대상에 동일한 배율을 적용한 방법**
 
-[작성]
+O1 전용 직교 뷰와 배율 설정은 없음. 단일 원근 뷰를 사용함. 기본 FOV는 45도임.
 
 ```javascript
-// O1 카메라 및 직교 투영 코드
+// 현재 O1 전용 직교 카메라는 구현되어 있지 않음.
+M.perspective(projection, camera.fov * Math.PI / 180, width / height, near, far);
 ```
 
 ### 8.3 O2 - 오른쪽 측면 직교 뷰
 
 ![O2 오른쪽 측면 직교 뷰](./images/o2_right.png)
 
-O2에서는 두 대상의 돌출 정도를 비교하기 위해 오른쪽 측면 직교 뷰를 사용하였다.
+O2는 두 대상의 돌출 정도를 비교하는 과제임. 오른쪽 측면 직교 뷰가 비교에 적합함. 현재 improved 코드에는 전용 직교 뷰가 없음. 실제 측정값은 실행 화면에서 확인해야 함.
 
 **카메라 설정**
 
-- Eye:
-- Target:
-- Up:
-- Projection:
-- Orthographic Scale:
+- Eye: O2 전용 설정 없음
+- Target: O2 전용 설정 없음
+- Up: Free-Fly 카메라 up 벡터
+- Projection: 기본 원근 투영
+- Orthographic Scale: 해당 없음
 
 **비교 결과**
 
-- 돌출 정도:
-- 판단 근거:
+- 돌출 정도: 미측정
+- 판단 근거: O2 직교 카메라 및 측정 기능 미구현
 
-**오른쪽 측면 직교 뷰를 사용한 이유**
+**오른쪽 측면 직교 뷰를 사용하려는 이유**
 
-[작성]
+측면 직교 투영은 깊이 방향 원근 축소를 제거함. 장치 돌출 정도 비교에 적합함. 현재 O2 waypoint는 -X 방향을 보는 자유 카메라 위치만 제공함.
 
 **두 대상에 동일한 배율을 적용한 방법**
 
-[작성]
+O2 전용 직교 뷰와 동일 배율 설정은 없음. 기본 원근 뷰에서 위치와 시점을 조정함.
 
 ```javascript
-// O2 카메라 및 직교 투영 코드
+// 현재 O2 전용 직교 카메라는 구현되어 있지 않음.
+M.perspective(projection, camera.fov * Math.PI / 180, width / height, near, far);
 ```
 
 ---
 
 ## 9. 화면 크기와 Aspect Ratio
 
-창의 가로·세로 크기가 변경되어도 화면이 찌그러지지 않도록 다음과 같이 처리하였다.
-
-[작성]
+캔버스 표시 크기와 devicePixelRatio로 drawing buffer를 매 프레임 갱신함. 투영 행렬에 viewport의 가로/세로 비율을 전달함. devicePixelRatio는 최대 2로 제한함. 단일 뷰임.
 
 ```javascript
-// aspect ratio 관련 코드
+const dpr = Math.min(devicePixelRatio || 1, 2);
+const width = Math.max(1, Math.round(rect.width * dpr));
+const height = Math.max(1, Math.round(rect.height * dpr));
+M.perspective(projection, fovRadians, width / height, near, far);
 ```
 
-분할 뷰를 사용했다면 각 뷰의 aspect ratio 계산 방법:
-
-[작성]
-
-분할 뷰를 사용하지 않았다면 그 이유:
-
-[작성]
+분할 뷰는 사용하지 않음. 각 분할 화면의 aspect ratio 계산도 없음. 단일 Free-Fly 화면에서 연속 이동하며 관찰하는 구조임.
 
 ---
 
@@ -432,29 +438,17 @@ O2에서는 두 대상의 돌출 정도를 비교하기 위해 오른쪽 측면 
 
 ### 10.1 가림 처리
 
-벽, 난간, 다른 층 등이 관찰 대상을 가리는 문제는 다음과 같이 처리하였다.
+깊이 버퍼로 가까운 geometry가 뒤쪽 geometry를 가리게 함. 벽·난간 숨김 UI는 미구현임. `viewer.hidden` Set은 확장용 상태임. 화면 조작 UI와 연결되어 있지 않음.
 
-[작성]
-
-숨김 기능을 사용했다면:
-
-- 숨기는 대상:
-- 숨김 상태 표시 방법:
-- 복원 방법:
-
-숨김 기능을 사용하지 않았다면 그 이유:
-
-[작성]
+숨김 기능은 추가하지 않음. 개선 범위를 카메라 이동과 waypoint 빠른 이동으로 한정함. 카메라 위치와 시점을 바꿔 대상에 접근함.
 
 ### 10.2 Near Clipping
 
-카메라가 대상에 너무 가까워 발생하는 near clipping 문제는 다음과 같이 처리하였다.
-
-[작성]
+원근 투영의 near 평면은 0.02임. far 평면은 180임. 너무 가까우면 near 평면에 의해 일부가 잘릴 수 있음. 이때 물러나거나 위치를 조정함. 자동 충돌 방지와 near 평면 동적 변경은 미구현임.
 
 **가림과 near clipping의 차이**
 
-[작성]
+가림은 다른 geometry가 대상 앞을 덮는 현상임. Near clipping은 대상이 카메라와 가까워 near 평면 앞쪽이 잘리는 현상임. 가림은 시선·기하 배치 문제임. Near clipping은 카메라 절단 평면 문제임.
 
 ---
 
