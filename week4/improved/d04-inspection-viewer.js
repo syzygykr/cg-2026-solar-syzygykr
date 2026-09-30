@@ -50,14 +50,24 @@
   gl.enable(gl.DEPTH_TEST);
   let started=null,last='';
   const api={canvas,gl,model,controls,hidden,drawView,render:null};window.InspectionViewer=api;
-  document.querySelector('#home').addEventListener('click',()=>{controls.home();controls.state.actions++;});
+  const waypointHud={
+    previous:document.querySelector('#waypoint-prev'),
+    current:document.querySelector('#waypoint-current'),
+    next:document.querySelector('#waypoint-next')
+  };
+  document.querySelector('#home').addEventListener('click',()=>{if(document.pointerLockElement===canvas)document.exitPointerLock();controls.home();controls.state.actions++;});
   document.querySelector('#measure').addEventListener('click',()=>{started=performance.now();controls.state.actions=0;});
   for(const p of model.tasks){const li=document.createElement('li');const title=document.createElement('strong');title.textContent=p.id+' '+p.name;li.append(title,document.createElement('br'),document.createTextNode(p.task));document.querySelector('#tasks').appendChild(li);}
   D.loop(()=>{
     const r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+    controls.update(performance.now());
     if(api.render)api.render(api);else drawView(controls.camera());
-    const s=controls.state,value=`기본 트랙볼 · 거리 ${s.distance.toFixed(2)}m · FOV ${s.fov}°\n회전 중심 (${s.target.map(v=>v.toFixed(2)).join(', ')})\n측정 ${started===null?'시작 전':((performance.now()-started)/1000).toFixed(0)+'초'} · 기본 조작 ${s.actions}회`;
+    const waypointIndex=controls.state.currentWaypointIndex;
+    waypointHud.previous.textContent=waypointIndex>0?controls.waypoints[waypointIndex-1].name:'';
+    waypointHud.current.textContent=waypointIndex>=0?controls.waypoints[waypointIndex].name:'';
+    waypointHud.next.textContent=waypointIndex>=0&&waypointIndex<controls.waypoints.length-1?controls.waypoints[waypointIndex+1].name:'';
+    const s=controls.state,value=`Free-Fly · 위치 (${s.position.map(v=>v.toFixed(1)).join(', ')})\nWASD 이동 · Space/Shift 상승/하강 · 클릭 후 마우스 시점 · Esc 해제 · R 전체 보기\n측정 ${started===null?'시작 전':((performance.now()-started)/1000).toFixed(0)+'초'}`;
     if(value!==last){read.textContent=value;last=value;}
   });
 })();

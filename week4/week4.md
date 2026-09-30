@@ -236,7 +236,7 @@ P3와 같이 건물 심부에 위치해 접근이 힘든 점에 직관적으로 
 
 ### 6.1 전체 인터페이스
 
-![Improved 전체 화면](./images/improved_overview.png)
+![Improved 전체 화면](images/improved_overview.png)
 
 **구현한 주요 기능**
 

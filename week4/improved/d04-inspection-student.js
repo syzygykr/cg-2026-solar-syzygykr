@@ -2,9 +2,9 @@
    제공 기준 버전은 이 파일을 비워 둔 상태입니다.
 
    const viewer = window.InspectionViewer;
-   viewer.controls.state: target, distance, rotation(쿼터니언), fov
+   viewer.controls.state: position, yaw, pitch, front, right, up, speed, mouseSensitivity, fov
    viewer.controls.camera(): 현재 eye/target/up
-   viewer.controls.home(): 기본 카메라로 복귀
+   viewer.controls.home(): 기본 카메라 위치와 방향으로 복귀
    viewer.model.poi: 주요 지점의 id/name/position/size/yaw/group
    viewer.model.comparisons: O1/O2 비교 대상 members와 관찰 방향 viewDirection
    viewer.model.tasks: 표지 관찰 6건 + 직교 비교 2건
