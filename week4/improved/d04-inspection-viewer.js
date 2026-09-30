@@ -55,6 +55,8 @@
     current:document.querySelector('#waypoint-current'),
     next:document.querySelector('#waypoint-next')
   };
+  const projectionToggle=document.querySelector('#projection-toggle');
+  projectionToggle.addEventListener('change',()=>{controls.state.orthographic=projectionToggle.checked;});
   document.querySelector('#home').addEventListener('click',()=>{if(document.pointerLockElement===canvas)document.exitPointerLock();controls.home();controls.state.actions++;});
   document.querySelector('#measure').addEventListener('click',()=>{started=performance.now();controls.state.actions=0;});
   for(const p of model.tasks){const li=document.createElement('li');const title=document.createElement('strong');title.textContent=p.id+' '+p.name;li.append(title,document.createElement('br'),document.createTextNode(p.task));document.querySelector('#tasks').appendChild(li);}
@@ -63,11 +65,12 @@
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     controls.update(performance.now());
     if(api.render)api.render(api);else drawView(controls.camera());
+    projectionToggle.checked=controls.state.orthographic;
     const waypointIndex=controls.state.currentWaypointIndex;
     waypointHud.previous.textContent=waypointIndex>0?controls.waypoints[waypointIndex-1].name:'';
     waypointHud.current.textContent=waypointIndex>=0?controls.waypoints[waypointIndex].name:'';
-    waypointHud.next.textContent=waypointIndex>=0&&waypointIndex<controls.waypoints.length-1?controls.waypoints[waypointIndex+1].name:'';
-    const s=controls.state,value=`Free-Fly · 위치 (${s.position.map(v=>v.toFixed(1)).join(', ')})\nWASD 이동 · Space/Shift 상승/하강 · 클릭 후 마우스 시점 · Esc 해제 · R 전체 보기\n측정 ${started===null?'시작 전':((performance.now()-started)/1000).toFixed(0)+'초'}`;
+    waypointHud.next.textContent=waypointIndex<0?controls.waypoints[0].name:waypointIndex<controls.waypoints.length-1?controls.waypoints[waypointIndex+1].name:'';
+    const s=controls.state,value=`Free-Fly · 위치 (${s.position.map(v=>v.toFixed(1)).join(', ')})\n${s.orthographic?'직교 투영':'원근 투영'} · WASD 이동 · Space/Shift 상승/하강 · 마우스 시점 · T 투영 전환\n측정 ${started===null?'시작 전':((performance.now()-started)/1000).toFixed(0)+'초'}`;
     if(value!==last){read.textContent=value;last=value;}
   });
 })();

@@ -4,7 +4,7 @@ window.InspectionControls = function(canvas) {
   const state={
     position:[3,8,28],yaw:-Math.PI/2,pitch:-0.16,
     front:[0,0,-1],right:[1,0,0],up:[0,1,0],
-    speed:9,mouseSensitivity:0.0025,fov:45,actions:0,currentWaypointIndex:-1
+    speed:9,mouseSensitivity:0.0025,fov:45,orthographic:false,actions:0,currentWaypointIndex:-1
   };
   const waypoints=[
     {name:'P1',position:[-2.3,2.0,7.8],yaw:-Math.PI/2,pitch:0},
@@ -16,6 +16,11 @@ window.InspectionControls = function(canvas) {
     {name:'O1',position:[10.9,4.8,14.3],yaw:-Math.PI/2,pitch:0},
     {name:'O2',position:[29.8,4.7,-0.6],yaw:Math.PI,pitch:0}
   ];
+  const collisionRadius=0.22;
+  const colliders=window.InspectionModel.boxes.map(box=>({
+    min:box.position.map((v,i)=>v-box.size[i]/2-collisionRadius),
+    max:box.position.map((v,i)=>v+box.size[i]/2+collisionRadius)
+  }));
   const keys=new Set();
   let previousTime=null;
 
@@ -32,7 +37,7 @@ window.InspectionControls = function(canvas) {
     state.position=[3,8,30];state.yaw=-Math.PI/2;state.pitch=-0.15;updateBasis();previousTime=null;
   }
   function camera(){
-    return {eye:[...state.position],target:state.position.map((v,i)=>v+state.front[i]),up:[...state.up],fov:state.fov};
+    return {eye:[...state.position],target:state.position.map((v,i)=>v+state.front[i]),up:[...state.up],fov:state.fov,orthographic:state.orthographic,halfHeight:8};
   }
   function selectWaypoint(index){
     if(index<0||index>=waypoints.length)return;
@@ -41,6 +46,22 @@ window.InspectionControls = function(canvas) {
     state.yaw=waypoints[index].yaw;
     state.pitch=waypoints[index].pitch;
     updateBasis();
+  }
+  function canOccupy(position){
+    return !colliders.some(box=>position.every((v,i)=>v>box.min[i]&&v<box.max[i]));
+  }
+  function moveWithCollision(displacement){
+    const distance=Math.hypot(...displacement);
+    const steps=Math.max(1,Math.ceil(distance/0.1));
+    const step=displacement.map(v=>v/steps);
+    for(let n=0;n<steps;n++){
+      for(let axis=0;axis<3;axis++){
+        if(step[axis]===0)continue;
+        const candidate=[...state.position];
+        candidate[axis]+=step[axis];
+        if(canOccupy(candidate))state.position=candidate;
+      }
+    }
   }
   function update(now){
     if(previousTime===null){previousTime=now;return;}
@@ -53,7 +74,7 @@ window.InspectionControls = function(canvas) {
     if(keys.has('Space'))move[1]+=1;
     if(keys.has('ShiftLeft'))move[1]-=1;
     const length=Math.hypot(...move);
-    if(length>0){for(let i=0;i<3;i++)state.position[i]+=move[i]/length*state.speed*dt;}
+    if(length>0)moveWithCollision(move.map(v=>v/length*state.speed*dt));
   }
   canvas.style.touchAction='none';
   canvas.addEventListener('click',()=>{canvas.focus();if(document.pointerLockElement!==canvas)canvas.requestPointerLock?.();});
@@ -72,6 +93,9 @@ window.InspectionControls = function(canvas) {
       const next=state.currentWaypointIndex+(e.code==='KeyQ'?-1:1);
       if(next>=0&&next<waypoints.length){selectWaypoint(next);state.actions++;}
     }
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.code==='KeyT'&&!e.repeat){e.preventDefault();state.orthographic=!state.orthographic;state.actions++;}
   });
   canvas.addEventListener('keyup',e=>keys.delete(e.code));
   window.addEventListener('blur',()=>keys.clear());
