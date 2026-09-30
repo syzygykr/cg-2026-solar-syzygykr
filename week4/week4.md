@@ -244,6 +244,7 @@ P3와 같이 건물 심부에 위치해 접근이 힘든 점에 직관적으로 
 - WASD로 카메라 기준 이동, Space/Left Shift로 월드 Y축 상승·하강을 하며 deltaTime을 반영
 - 캔버스 클릭으로 Pointer Lock을 요청하고 마우스로 yaw/pitch 조절, Esc로 잠금을 해제
 - Q/E waypoint 이동 + 우상단의 이전·현재·다음 Focus HUD를 추가
+- T 키와 HUD 체크박스로 원근/직교 투영을 전환함. 카메라 위치와 방향은 유지함.
 
 ### 6.2 P1-P6 관찰 방식
 
@@ -348,79 +349,87 @@ Improved에는 궤도 회전 중심이 없다. 카메라의 `position`, `yaw`, `
 
 **사용한 투영**
 
-Perspective(원근 투영)
+기본값은 Perspective(원근 투영)임. T 키 또는 우상단 체크박스로 Orthographic(직교 투영)과 전환 가능함.
 
 **선택 이유**
 
-P1-P6는 공간 안에서 명판을 찾아 접근해 읽는 작업이므로 원근감과 깊이 이동을 제공하는 원근 투영을 사용한다.
+P1-P6는 공간 안에서 명판을 찾아 접근해 읽는 작업이므로 기본 원근 투영을 사용함. 비교 시에는 T 키 또는 우상단 체크박스로 직교 투영 전환 가능함. 투영 전환은 카메라 위치와 방향을 바꾸지 않음.
 
 ### 8.2 O1 - 전면 직교 뷰
 
 ![O1 전면 직교 뷰](./images/o1_front.png)
 
-O1 과제는 두 대상의 높이와 폭을 비교하도록 구성되어 있다. 전면 직교 뷰는 비교 목적에 적합하지만 현재 improved 코드에는 전용 직교 뷰가 구현되어 있지 않다.
+O1 과제는 두 대상의 높이와 폭을 비교하는 과제임. T 키 또는 우상단 체크박스로 현재 카메라의 직교 투영 전환 가능함. O1에 맞춘 전용 카메라 위치·방향은 따로 설정하지 않음.
 
-현재 improved 구현에는 O1 전용 직교 카메라가 없다. 실제 측정값은 실행 화면에서 확인해야 한다.
+O1 전용 카메라와 자동 프레이밍은 미구현임. 실제 비교 화면과 측정값은 실행 후 기록해야 함.
 
 **카메라 설정**
 
 - Eye: O1 전용 설정 없음
 - Target: O1 전용 설정 없음
 - Up: Free-Fly 카메라 up 벡터
-- Projection: 기본 원근 투영
-- Orthographic Scale: 해당 없음
+- Projection: 원근/직교 토글 가능. 기본은 원근임.
+- Orthographic Scale: halfHeight `8`임.
 
 **비교 결과**
 
 - 높이: 미측정
 - 폭: 미측정
-- 판단 근거: O1 직교 카메라 및 측정 기능 미구현
+- 판단 근거: O1 전용 카메라 및 측정 기능 미구현
 
 **전면 직교 뷰를 사용하려는 이유**
 
-직교 투영은 거리별 크기 변화를 제거하므로 패널의 높이와 폭 비교에 적합하다. 현재 코드는 기본 Free-Fly 원근 뷰만 제공한다.
+직교 투영은 거리별 크기 변화를 제거하므로 패널의 높이와 폭 비교에 적합함. 현재 T 키와 체크박스로 일반 직교 투영을 켤 수 있음. O1에 맞춘 자동 카메라 설정은 없음.
 
 **두 대상에 동일한 배율을 적용한 방법**
 
-현재 O1 전용 직교 뷰와 배율 설정은 없다. 단일 원근 뷰에서 기본 FOV 45도를 사용한다.
+직교 투영 시 halfHeight `8`을 사용함. O1 전용 배율은 없음. 원근 투영의 기본 FOV는 45도임.
 
 ```javascript
-// 현재 O1 전용 직교 카메라는 구현되어 있지 않다.
-M.perspective(projection, camera.fov * Math.PI / 180, width / height, near, far);
+if (camera.orthographic) {
+  const half = camera.halfHeight || 8;
+  M.ortho(projection, -half * width / height, half * width / height, -half, half, near, far);
+} else {
+  M.perspective(projection, camera.fov * Math.PI / 180, width / height, near, far);
+}
 ```
 
 ### 8.3 O2 - 오른쪽 측면 직교 뷰
 
 ![O2 오른쪽 측면 직교 뷰](./images/o2_right.png)
 
-O2 과제는 두 대상의 돌출 정도를 비교하도록 구성되어 있다. 오른쪽 측면 직교 뷰는 비교 목적에 적합하지만 현재 improved 코드에는 전용 직교 뷰가 구현되어 있지 않다.
+O2 과제는 두 대상의 돌출 정도를 비교하는 과제임. T 키 또는 우상단 체크박스로 현재 카메라의 직교 투영 전환 가능함. O2에 맞춘 전용 카메라 위치·방향은 따로 설정하지 않음.
 
-현재 improved 구현에는 O2 전용 직교 카메라가 없다. 실제 측정값은 실행 화면에서 확인해야 한다.
+O2 전용 카메라와 자동 프레이밍은 미구현임. 실제 비교 화면과 측정값은 실행 후 기록해야 함.
 
 **카메라 설정**
 
 - Eye: O2 전용 설정 없음
 - Target: O2 전용 설정 없음
 - Up: Free-Fly 카메라 up 벡터
-- Projection: 기본 원근 투영
-- Orthographic Scale: 해당 없음
+- Projection: 원근/직교 토글 가능. 기본은 원근임.
+- Orthographic Scale: halfHeight `8`임.
 
 **비교 결과**
 
 - 돌출 정도: 미측정
-- 판단 근거: O2 직교 카메라 및 측정 기능 미구현
+- 판단 근거: O2 전용 카메라 및 측정 기능 미구현
 
 **오른쪽 측면 직교 뷰를 사용하려는 이유**
 
-측면 직교 투영은 깊이 방향 원근 축소를 제거해 장치의 돌출 정도를 비교하기에 적합하다. 현재 O2 waypoint는 -X 방향을 바라보는 자유 카메라 위치만 제공한다.
+측면 직교 투영은 깊이 방향 원근 축소를 제거해 장치의 돌출 정도 비교에 적합함. T 키로 직교 투영을 켤 수 있음. O2 waypoint는 -X 방향을 보는 위치만 제공하며 비교 대상에 맞춘 자동 프레이밍은 없음.
 
 **두 대상에 동일한 배율을 적용한 방법**
 
-현재 O2 전용 직교 뷰와 동일 배율 설정은 없다. 기본 원근 뷰에서 사용자가 위치와 시점을 조정한다.
+직교 투영 시 halfHeight `8`을 사용함. O2 전용 배율은 없음. 원근 투영에서는 사용자가 위치와 시점을 조정함.
 
 ```javascript
-// 현재 O2 전용 직교 카메라는 구현되어 있지 않다.
-M.perspective(projection, camera.fov * Math.PI / 180, width / height, near, far);
+if (camera.orthographic) {
+  const half = camera.halfHeight || 8;
+  M.ortho(projection, -half * width / height, half * width / height, -half, half, near, far);
+} else {
+  M.perspective(projection, camera.fov * Math.PI / 180, width / height, near, far);
+}
 ```
 
 ---
