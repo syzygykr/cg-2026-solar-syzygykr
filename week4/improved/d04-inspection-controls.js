@@ -13,7 +13,7 @@ window.InspectionControls = function(canvas) {
     {name:'P4',position:[0.7,9.7,3.3],yaw:-Math.PI/2,pitch:0},
     {name:'P5',position:[-0.3,5.5,-7.4],yaw:Math.PI/2,pitch:0},
     {name:'P6',position:[11.1,1.3,4.1],yaw:-Math.PI/2,pitch:0},
-    {name:'O1',position:[10.9,4.8,14.3],yaw:-Math.PI/2,pitch:0},
+    {name:'O1',position:[-5.8, 2.2, 19.2],yaw:-Math.PI/2,pitch:0},
     {name:'O2',position:[29.8,4.7,-0.6],yaw:Math.PI,pitch:0}
   ];
   const collisionRadius=0.22;
