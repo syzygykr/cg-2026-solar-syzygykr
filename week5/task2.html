@@ -3,263 +3,304 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>5주차 실습 2 — 예시 결과 「탐사선의 밤」</title>
+<title>5주차 실습 2 — 궤도 위의 SOS</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f16; }
   canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
-  #hud { position: fixed; left: 12px; top: 12px; margin: 0; padding: 10px 13px;
-         border: 1px solid rgba(255,255,255,.14); border-radius: 6px;
-         background: rgba(8,12,20,.72); color: #cfdcef;
-         font: 12px/1.75 ui-monospace, Menlo, Consolas, monospace; }
-  #hud b { color: #ffd98a; }
-  #hud .off { opacity: .35; text-decoration: line-through; }
+  #hint { position: fixed; left: 12px; bottom: 12px; margin: 0;
+          color: #9fb0c8; font: 12px/1.6 ui-monospace, Menlo, Consolas, monospace; }
+  #controls { position: fixed; top: 12px; left: 12px; max-width: calc(100vw - 48px);
+    padding: 14px; border: 1px solid #48556a; border-radius: 8px;
+    background: #101925e8; color: #e0e8f5; font: 13px/1.8 sans-serif; }
+  #controls label { display: inline-block; margin-right: 12px; }
+  select, button, input { vertical-align: middle; }
+  #controls > div + div { margin-top: 4px; }
+  #controls button[aria-pressed="false"] { opacity: 0.45; }
+  #controls button { cursor: pointer; }
 </style>
 </head>
 <body>
 <canvas id="glcanvas"></canvas>
-<div id="hud"></div>
+<p id="hint">드래그 = 시점 회전 · 휠 = 확대/축소</p>
 
+<section id="controls" aria-label="광원 제어">
+  <div><strong>&lt;UFO납치와 SOS&gt;</strong></div>
+  <div><button id="sun" aria-pressed="true">태양빛</button> <button id="ufo" aria-pressed="true">UFO빔</button> <button id="sos" aria-pressed="true">SOS사인</button></div>
+  <div><button id="pause">일시정지</button> <button id="reset">시점 초기화</button></div>
+</section>
 <script>
-/* ============================================================================
-   5주차 실습 2 — 예시 결과 「탐사선의 밤」
-
-   실습 1 에서 완성한 파일에 광원을 늘리고 색과 재질을 나눈 것입니다.
-     ① point       — 지평선 너머로 지는 붉은 태양 (따뜻한 색, 강한 감쇠)
-     ② directional — 반대편 먼 항성에서 오는 차가운 푸른 빛 (감쇠 없음)
-     ③ spot        — 탐사선에 달린 흰 서치라이트가 지면을 훑는다
-
-   숫자 키 1 · 2 · 3 으로 광원을 하나씩 켜고 끌 수 있습니다.
-   ★ 이 코드를 그대로 제출하면 안 됩니다. 자기 장면을 설계하세요.
-   ============================================================================ */
+/* 단계 0~6을 선택하여 같은 장면의 조명 변화를 비교한다. 기본값은 완성 상태. */
 'use strict';
 
-/* ── 메시 ─────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   1. 메시 만들기 — 위치 · 법선 · 인덱스
+   ══════════════════════════════════════════════════════════════════════════ */
+
+// 구: 위도 seg 단계 × 경도 seg*2 단계로 잘라 삼각형을 만든다.
+// 구의 법선은 중심에서 표면으로 향하는 방향과 같으므로 위치를 정규화하면 끝난다.
 function makeSphere(seg) {
   const positions = [], normals = [], indices = [];
   for (let i = 0; i <= seg; i++) {
-    const phi = Math.PI * i / seg;
+    const phi = Math.PI * i / seg;                 // 0(북극) ~ π(남극)
     for (let j = 0; j <= seg * 2; j++) {
       const th = 2 * Math.PI * j / (seg * 2);
-      const x = Math.sin(phi) * Math.cos(th), y = Math.cos(phi), z = Math.sin(phi) * Math.sin(th);
-      positions.push(x, y, z); normals.push(x, y, z);
+      const x = Math.sin(phi) * Math.cos(th);
+      const y = Math.cos(phi);
+      const z = Math.sin(phi) * Math.sin(th);
+      positions.push(x, y, z);
+      normals.push(x, y, z);                       // 반지름 1 이므로 위치 = 법선
     }
   }
   const W = seg * 2 + 1;
-  for (let i = 0; i < seg; i++)
+  for (let i = 0; i < seg; i++) {
     for (let j = 0; j < seg * 2; j++) {
       const a = i * W + j, b = a + W;
       indices.push(a, b, a + 1, a + 1, b, b + 1);
     }
-  return { positions: new Float32Array(positions), normals: new Float32Array(normals),
-           indices: new Uint16Array(indices) };
-}
-function makePlane(size) {
-  const s = size / 2;
-  return { positions: new Float32Array([-s,0,-s, s,0,-s, s,0,s, -s,0,s]),
-           normals:   new Float32Array([0,1,0, 0,1,0, 0,1,0, 0,1,0]),
-           indices:   new Uint16Array([0,1,2, 0,2,3]) };
+  }
+  return { positions: new Float32Array(positions),
+           normals:   new Float32Array(normals),
+           indices:   new Uint16Array(indices) };
 }
 
-/* ── 버텍스 셰이더 ─────────────────────────────────────────────────────── */
+// 바닥: y = 0 평면. 법선은 전부 위쪽 (0,1,0).
+function makePlane(size) {
+  const s = size / 2;
+  return {
+    positions: new Float32Array([-s,0,-s,  s,0,-s,  s,0,s,  -s,0,s]),
+    normals:   new Float32Array([ 0,1,0,   0,1,0,   0,1,0,   0,1,0 ]),
+    indices:   new Uint16Array([0, 1, 2, 0, 2, 3]),
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. 버텍스 셰이더
+   ══════════════════════════════════════════════════════════════════════════ */
 const VS_SOURCE = `#version 300 es
+
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNormal;
+
 uniform mat4 uModel, uView, uProj;
-uniform mat3 uNormalMat;
-out vec3 vWorldPos, vNormal;
+uniform mat3 uNormalMat;              // transpose(inverse(model))
+uniform bool uWrongNormal;
+
+out vec3 vWorldPos;                   // 이 픽셀이 세계 어디에 있는가
+out vec3 vNormal;                     // 이 픽셀의 표면이 어디를 향하는가
+
 void main() {
   vec4 world = uModel * vec4(aPos, 1.0);
   vWorldPos  = world.xyz;
-  vNormal    = uNormalMat * aNormal;
+
+  // 단계 5: 기본값은 올바른 법선 행렬. 비교할 때만 모델 행렬을 사용한다.
+  vNormal = uNormalMat * aNormal;
+
   gl_Position = uProj * uView * world;
 }
 `;
 
-/* ── 프래그먼트 셰이더 — 광원 세 개를 각각 계산해서 더한다 ───────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   3. 프래그먼트 셰이더 — 여기가 이번 주의 주무대입니다
+   ══════════════════════════════════════════════════════════════════════════ */
 const FS_SOURCE = `#version 300 es
 precision highp float;
-
-in vec3 vWorldPos, vNormal;
-
-uniform vec3  uBaseColor;
-uniform float uShininess, uKs;
-uniform bool  uEmissive;
-uniform vec3  uViewPos;
-
-uniform vec3  uSunPos,   uSunColor;      // ① point
-uniform vec3  uStarDir,  uStarColor;     // ② directional
-uniform vec3  uSpotPos,  uSpotDir, uSpotColor;
-uniform float uCosIn, uCosOut;           // ③ spot
-uniform bool  uOn1, uOn2, uOn3;
-
+in vec3 vWorldPos;
+in vec3 vNormal;
+uniform vec3 uBaseColor, uViewPos, uUfoPos, uSosPos, uSunPos;
+uniform float uShininess, uKs, uSosPower, uAlpha;
+uniform bool uEmissive, uSunOn, uUfoOn, uSosOn, uBeam, uRoundGlow;
 out vec4 fragColor;
-
-// 하나의 광원이 만드는 밝기 = diffuse + specular
-vec3 shade(vec3 N, vec3 V, vec3 L, vec3 lightColor, float att) {
-  float lambert = max(dot(N, L), 0.0);
-  if (lambert <= 0.0) return vec3(0.0);        // 등진 면에는 하이라이트도 없다
-  vec3  R    = reflect(-L, N);
-  float spec = pow(max(dot(R, V), 0.0), uShininess);
-  return (uBaseColor * lambert + uKs * spec) * lightColor * att;
-}
-
-void main() {
-  if (uEmissive) { fragColor = vec4(uBaseColor, 1.0); return; }
-
+// 각 광원의 확산광과 정반사를 세계 좌표에서 계산한다.
+vec3 shade(vec3 L, vec3 radiance) {
   vec3 N = normalize(vNormal);
-  vec3 V = normalize(uViewPos - vWorldPos);
-
-  vec3 color = 0.035 * uBaseColor;             // 야외의 밤 — ambient 는 아주 작게
-
-  if (uOn1) {                                  // ① point — 지는 해
-    vec3  d    = uSunPos - vWorldPos;
-    float dist = length(d);
-    color += shade(N, V, d / dist, uSunColor, 1.0 / (1.0 + 0.012 * dist * dist));
+  float nl = max(dot(N,L),0.0);
+  vec3 V = normalize(uViewPos-vWorldPos);
+  float spec = nl > 0.0 ? pow(max(dot(reflect(-L,N),V),0.0),uShininess)*uKs : 0.0;
+  return (nl*uBaseColor + vec3(spec))*radiance;
+}
+void main() {
+  vec3 color;
+  if (uEmissive) {
+    color = uBaseColor;
+    if (uRoundGlow) {
+      // 구형 발광체의 연출용 표면 명암. 최소 발광은 남기고 한쪽 면을 밝힌다.
+      // 태양과 빔에는 적용하지 않는다.
+      vec3 N = normalize(vNormal);
+      vec3 L = normalize(vec3(-0.6,0.8,0.7));
+      vec3 V = normalize(uViewPos-vWorldPos);
+      float diffuse = max(dot(N,L),0.0);
+      float highlight = pow(max(dot(reflect(-L,N),V),0.0),uShininess);
+      color = uBaseColor*(0.07+0.93*diffuse) + vec3(0.5)*uKs*highlight;
+    }
   }
-  if (uOn2) {                                  // ② directional — 먼 항성
-    color += shade(N, V, normalize(-uStarDir), uStarColor, 1.0);
+  else {
+    // 환경광은 광원 개수와 무관하게 한 번만 더한다.
+    color = 0.018*uBaseColor;
+    if (uSunOn) {
+      // 유한 거리에 있는 오렌지색 태양: 거리에 따른 밝기 차이를 강조한다.
+      vec3 delta = uSunPos-vWorldPos;
+      float d = length(delta);
+      color += shade(delta/max(d,0.0001),vec3(10.0,3.1,0.45))/(1.0+0.06*d*d);
+    }
+    if (uUfoOn) {
+      vec3 delta = uUfoPos-vWorldPos;
+      float d = length(delta);
+      vec3 L = delta/max(d,0.0001);
+      float cone = smoothstep(cos(radians(23.0)),cos(radians(15.0)),dot(-L,vec3(0,-1,0)));
+      color += shade(L,vec3(0.12,1.6,7.0))*cone/(1.0+0.055*d*d);
+    }
+    if (uSosOn) {
+      vec3 delta = uSosPos-vWorldPos;
+      float d = length(delta);
+      color += shade(delta/max(d,0.0001),vec3(9.0,0.08,0.025))*uSosPower/(1.0+3.0*d*d);
+    }
   }
-  if (uOn3) {                                  // ③ spot — 서치라이트
-    vec3  d    = uSpotPos - vWorldPos;
-    float dist = length(d);
-    vec3  L    = d / dist;
-    float att  = 1.0 / (1.0 + 0.05 * dist * dist);
-    float c    = dot(-L, normalize(uSpotDir));
-    att *= clamp((c - uCosOut) / (uCosIn - uCosOut), 0.0, 1.0);
-    color += shade(N, V, L, uSpotColor, att);
-  }
-
-  color = color / (color + 1.0);               // 아주 단순한 톤 매핑
-  fragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);   // 감마 보정
+  color = color/(color+vec3(1.0));
+  color = pow(max(color,vec3(0.0)),vec3(1.0/2.2));
+  fragColor = vec4(color,uAlpha);
 }
 `;
 
-/* ── 4×4 행렬 ─────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   4. 4×4 행렬 도구 (열 우선)
+   ══════════════════════════════════════════════════════════════════════════ */
 const Mat4 = {
-  identity: function () { return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); },
-  multiply: function (a, b) {
+  identity: function () {
+    return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+  },
+  multiply: function (a, b) {                     // a * b
     const o = new Float32Array(16);
-    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
-      let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+r] * b[c*4+k];
-      o[c*4+r] = s;
+    for (let c = 0; c < 4; c++) {
+      for (let r = 0; r < 4; r++) {
+        let s = 0;
+        for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k];
+        o[c * 4 + r] = s;
+      }
     }
     return o;
   },
-  translate: function (x,y,z) { const m = Mat4.identity(); m[12]=x; m[13]=y; m[14]=z; return m; },
-  scale: function (x,y,z) { const m = Mat4.identity(); m[0]=x; m[5]=y; m[10]=z; return m; },
+  translate: function (x, y, z) {
+    const m = Mat4.identity(); m[12] = x; m[13] = y; m[14] = z; return m;
+  },
+  scale: function (x, y, z) {
+    const m = Mat4.identity(); m[0] = x; m[5] = y; m[10] = z; return m;
+  },
   rotateY: function (r) {
     const m = Mat4.identity(), c = Math.cos(r), s = Math.sin(r);
-    m[0]=c; m[2]=-s; m[8]=s; m[10]=c; return m;
+    m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m;
   },
   perspective: function (fovy, aspect, near, far) {
-    const f = 1 / Math.tan(fovy/2), nf = 1 / (near - far);
-    return new Float32Array([f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]);
+    const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+    return new Float32Array([f / aspect,0,0,0, 0,f,0,0,
+                             0,0,(far + near) * nf,-1, 0,0,2 * far * near * nf,0]);
   },
   lookAt: function (eye, center, up) {
-    let zx=eye[0]-center[0], zy=eye[1]-center[1], zz=eye[2]-center[2];
-    const zl=Math.hypot(zx,zy,zz)||1; zx/=zl; zy/=zl; zz/=zl;
-    let xx=up[1]*zz-up[2]*zy, xy=up[2]*zx-up[0]*zz, xz=up[0]*zy-up[1]*zx;
-    const xl=Math.hypot(xx,xy,xz)||1; xx/=xl; xy/=xl; xz/=xl;
-    const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
-    return new Float32Array([xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
-      -(xx*eye[0]+xy*eye[1]+xz*eye[2]), -(yx*eye[0]+yy*eye[1]+yz*eye[2]),
+    let zx = eye[0]-center[0], zy = eye[1]-center[1], zz = eye[2]-center[2];
+    const zl = Math.hypot(zx, zy, zz) || 1; zx/=zl; zy/=zl; zz/=zl;
+    let xx = up[1]*zz - up[2]*zy, xy = up[2]*zx - up[0]*zz, xz = up[0]*zy - up[1]*zx;
+    const xl = Math.hypot(xx, xy, xz) || 1; xx/=xl; xy/=xl; xz/=xl;
+    const yx = zy*xz - zz*xy, yy = zz*xx - zx*xz, yz = zx*xy - zy*xx;
+    return new Float32Array([
+      xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
+      -(xx*eye[0]+xy*eye[1]+xz*eye[2]),
+      -(yx*eye[0]+yy*eye[1]+yz*eye[2]),
       -(zx*eye[0]+zy*eye[1]+zz*eye[2]), 1]);
   },
+  // 법선 행렬 = transpose(inverse(model)) 의 좌상단 3×3
   normalFromMat4: function (m) {
-    const a00=m[0],a01=m[1],a02=m[2],a10=m[4],a11=m[5],a12=m[6],a20=m[8],a21=m[9],a22=m[10];
-    const b01=a22*a11-a12*a21, b11=-a22*a10+a12*a20, b21=a21*a10-a11*a20;
-    let det=a00*b01+a01*b11+a02*b21;
+    const a00=m[0],a01=m[1],a02=m[2], a10=m[4],a11=m[5],a12=m[6],
+          a20=m[8],a21=m[9],a22=m[10];
+    const b01 =  a22*a11 - a12*a21, b11 = -a22*a10 + a12*a20, b21 = a21*a10 - a11*a20;
+    let det = a00*b01 + a01*b11 + a02*b21;
     if (!det) return new Float32Array([1,0,0, 0,1,0, 0,0,1]);
-    det = 1/det;
+    det = 1 / det;
     return new Float32Array([
-      b01*det, (-a22*a01+a02*a21)*det, ( a12*a01-a02*a11)*det,
-      b11*det, ( a22*a00-a02*a20)*det, (-a12*a00+a02*a10)*det,
-      b21*det, (-a21*a00+a01*a20)*det, ( a11*a00-a01*a10)*det]);
+      b01*det, b11*det, b21*det,
+      (-a22*a01 + a02*a21)*det, (a22*a00 - a02*a20)*det, (-a21*a00 + a01*a20)*det,
+      (a12*a01 - a02*a11)*det, (-a12*a00 + a02*a10)*det, (a11*a00 - a01*a10)*det]);
   },
 };
 
-/* ── WebGL 준비 ───────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   5. WebGL 준비
+   ══════════════════════════════════════════════════════════════════════════ */
 const canvas = document.getElementById('glcanvas');
 const gl = canvas.getContext('webgl2');
 if (!gl) {
-  document.body.innerHTML = '<p style="color:#fff;font:16px sans-serif;padding:2rem">' +
+  document.body.innerHTML =
+    '<p style="color:#fff;font:16px sans-serif;padding:2rem">' +
     'WebGL2 를 사용할 수 없습니다. 최신 Chrome 또는 Edge 로 열어 주세요.</p>';
   throw new Error('no webgl2');
 }
+
 function compileShader(type, source) {
   const s = gl.createShader(type);
-  gl.shaderSource(s, source); gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-    throw new Error(gl.getShaderInfoLog(s));
+  gl.shaderSource(s, source);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    const kind = (type === gl.VERTEX_SHADER) ? '버텍스' : '프래그먼트';
+    throw new Error(kind + ' 셰이더 오류\n' + gl.getShaderInfoLog(s));
+  }
   return s;
 }
-const program = gl.createProgram();
-gl.attachShader(program, compileShader(gl.VERTEX_SHADER, VS_SOURCE));
-gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, FS_SOURCE));
-gl.linkProgram(program);
-if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+function createProgram(vsSource, fsSource) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compileShader(gl.VERTEX_SHADER, vsSource));
+  gl.attachShader(p, compileShader(gl.FRAGMENT_SHADER, fsSource));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    throw new Error('링크 오류\n' + gl.getProgramInfoLog(p));
+  }
+  return p;
+}
+const program = createProgram(VS_SOURCE, FS_SOURCE);
 
+// uniform 의 위치를 이름으로 한 번만 찾아 둔다
 const U = {};
-['uModel','uView','uProj','uNormalMat','uBaseColor','uShininess','uKs','uEmissive','uViewPos',
- 'uSunPos','uSunColor','uStarDir','uStarColor','uSpotPos','uSpotDir','uSpotColor',
- 'uCosIn','uCosOut','uOn1','uOn2','uOn3'].forEach(function (n) {
-  U[n] = gl.getUniformLocation(program, n);
+['uModel','uView','uProj','uNormalMat','uBaseColor','uViewPos','uShininess',
+ 'uKs','uEmissive','uSunPos','uUfoPos','uSosPos','uSosPower','uSunOn','uUfoOn','uSosOn','uAlpha','uBeam','uRoundGlow'].forEach(n => {
+ U[n] = gl.getUniformLocation(program,n);
 });
 
 function createMesh(mesh) {
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
-  function attribute(data, loc, size) {
-    const b = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, b);
+  function attribute(data, location, size) {
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
   }
-  attribute(mesh.positions, 0, 3);
-  attribute(mesh.normals, 1, 3);
+  attribute(mesh.positions, 0, 3);      // location 0 ← aPos
+  attribute(mesh.normals,   1, 3);      // location 1 ← aNormal
   const ibo = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
   gl.bindVertexArray(null);
   return { vao: vao, count: mesh.indices.length };
 }
-const sphere = createMesh(makeSphere(40));
-const plane  = createMesh(makePlane(60));
+
+const sphere = createMesh(makeSphere(32));
+const plane  = createMesh(makePlane(16));
+
 gl.enable(gl.DEPTH_TEST);
 
-/* ── 광원 켜기/끄기 ───────────────────────────────────────────────────── */
-const on = { l1: true, l2: true, l3: true };
-window.addEventListener('keydown', function (e) {
-  if (e.key === '1') on.l1 = !on.l1;
-  if (e.key === '2') on.l2 = !on.l2;
-  if (e.key === '3') on.l3 = !on.l3;
-  paintHud();
-});
-const hud = document.getElementById('hud');
-function paintHud() {
-  function row(k, key, text) {
-    return '<div class="' + (on[k] ? '' : 'off') + '"><b>' + key + '</b> ' + text + '</div>';
-  }
-  hud.innerHTML =
-    '<div style="margin-bottom:6px"><b>탐사선의 밤</b> — 숫자 키로 광원을 껐다 켜 보세요</div>' +
-    row('l1', '1', 'point &nbsp;&nbsp;&nbsp; 지는 해 (따뜻한 색 · 강한 감쇠)') +
-    row('l2', '2', 'directional 먼 항성 (차가운 색 · 감쇠 없음)') +
-    row('l3', '3', 'spot &nbsp;&nbsp;&nbsp;&nbsp; 탐사선 서치라이트') +
-    '<div style="margin-top:6px;opacity:.6">드래그 = 시점 회전 · 휠 = 확대/축소</div>';
-}
-paintHud();
-
-/* ── 카메라 ───────────────────────────────────────────────────────────── */
-const cam = { yaw: 0.35, pitch: 0.18, dist: 15 };
+/* ══════════════════════════════════════════════════════════════════════════
+   6. 마우스로 도는 카메라
+   ══════════════════════════════════════════════════════════════════════════ */
+const cam = { yaw: 0.6, pitch: 0.28, dist: 22 };
 let dragging = false, lastX = 0, lastY = 0;
+
 canvas.addEventListener('pointerdown', function (e) {
-  dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId);
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove', function (e) {
   if (!dragging) return;
-  cam.yaw += (e.clientX - lastX) * 0.008;
-  cam.pitch = Math.max(-0.05, Math.min(1.2, cam.pitch + (e.clientY - lastY) * 0.005));
+  cam.yaw   += (e.clientX - lastX) * 0.008;
+  cam.pitch += (e.clientY - lastY) * 0.006;
+  cam.pitch  = Math.max(-1.3, Math.min(1.4, cam.pitch));
   lastX = e.clientX; lastY = e.clientY;
 });
 canvas.addEventListener('pointerup', function (e) {
@@ -267,84 +308,120 @@ canvas.addEventListener('pointerup', function (e) {
 });
 canvas.addEventListener('wheel', function (e) {
   e.preventDefault();
-  cam.dist = Math.max(4, Math.min(45, cam.dist * (1 + e.deltaY * 0.001)));
+  cam.dist = Math.max(3, Math.min(40, cam.dist * (1 + e.deltaY * 0.001)));
 }, { passive: false });
 
-/* ── 장면 ─────────────────────────────────────────────────────────────── */
-// 재질을 물체마다 다르게 준다 — 같은 조명에서 얼마나 달라 보이는지
-const ROCKS = [
-  { at: [-4.2, 0.9, -1.4], r: 0.9,  col: [0.34, 0.30, 0.28], shin:   6, ks: 0.05 },
-  { at: [-1.4, 1.4, 1.2],  r: 1.4,  col: [0.46, 0.40, 0.36], shin:  14, ks: 0.10 },
-  { at: [ 2.6, 1.1, -0.6], r: 1.1,  col: [0.60, 0.72, 0.82], shin: 140, ks: 0.90 },  // 얼음
-  { at: [ 5.0, 0.6, 1.8],  r: 0.6,  col: [0.40, 0.34, 0.30], shin:  10, ks: 0.08 },
-];
-
-const startTime = performance.now();
-function draw(mesh, model, color, shin, ks, emissive) {
-  gl.uniformMatrix4fv(U.uModel, false, model);
-  gl.uniformMatrix3fv(U.uNormalMat, false, Mat4.normalFromMat4(model));
-  gl.uniform3fv(U.uBaseColor, color);
-  gl.uniform1f(U.uShininess, shin);
-  gl.uniform1f(U.uKs, ks);
-  gl.uniform1i(U.uEmissive, emissive ? 1 : 0);
-  gl.bindVertexArray(mesh.vao);
-  gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
-}
-
-function render() {
-  const dpr = window.devicePixelRatio || 1;
-  const w = Math.floor(canvas.clientWidth * dpr), h = Math.floor(canvas.clientHeight * dpr);
-  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(0.02, 0.025, 0.045, 1.0);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-  const t = (performance.now() - startTime) / 1000;
-
-  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
-  const eye = [Math.sin(cam.yaw)*cp*cam.dist, sp*cam.dist + 1.6, Math.cos(cam.yaw)*cp*cam.dist];
-  const view = Mat4.lookAt(eye, [0, 1.2, 0], [0, 1, 0]);
-  const proj = Mat4.perspective(Math.PI/4, canvas.width/canvas.height, 0.1, 300);
-
-  // ① 지는 해 — 아주 낮게 떠서 천천히 내려간다
-  const sunPos = [-16.0, 1.1 + Math.sin(t * 0.12) * 0.5, -9.0];
-  // ③ 서치라이트 — 지면을 훑는다
-  const spotPos = [Math.sin(t * 0.35) * 2.2, 4.6, 5.2];
-  const aim = [Math.sin(t * 0.35 + 1.1) * 4.5, 0.4, -1.0];
-  const spotDir = [aim[0]-spotPos[0], aim[1]-spotPos[1], aim[2]-spotPos[2]];
-
-  gl.useProgram(program);
-  gl.uniformMatrix4fv(U.uView, false, view);
-  gl.uniformMatrix4fv(U.uProj, false, proj);
-  gl.uniform3fv(U.uViewPos, eye);
-  gl.uniform3fv(U.uSunPos, sunPos);
-  gl.uniform3f(U.uSunColor, 3.2, 1.15, 0.42);          // 따뜻한 주황
-  gl.uniform3f(U.uStarDir, 0.55, -0.42, 0.72);
-  gl.uniform3f(U.uStarColor, 0.16, 0.24, 0.46);        // 차가운 파랑
-  gl.uniform3fv(U.uSpotPos, spotPos);
-  gl.uniform3fv(U.uSpotDir, spotDir);
-  gl.uniform3f(U.uSpotColor, 3.8, 3.75, 3.5);
-  gl.uniform1f(U.uCosIn,  Math.cos(11 * Math.PI / 180));
-  gl.uniform1f(U.uCosOut, Math.cos(19 * Math.PI / 180));
-  gl.uniform1i(U.uOn1, on.l1 ? 1 : 0);
-  gl.uniform1i(U.uOn2, on.l2 ? 1 : 0);
-  gl.uniform1i(U.uOn3, on.l3 ? 1 : 0);
-
-  draw(plane, Mat4.identity(), [0.30, 0.27, 0.25], 6, 0.04, false);
-
-  for (let i = 0; i < ROCKS.length; i++) {
-    const k = ROCKS[i];
-    let m = Mat4.multiply(Mat4.translate(k.at[0], k.at[1], k.at[2]), Mat4.rotateY(t * 0.15));
-    m = Mat4.multiply(m, Mat4.scale(k.r, k.r * 0.86, k.r));
-    draw(sphere, m, k.col, k.shin, k.ks, false);
+/* ══════════════════════════════════════════════════════════════════════════
+   7. 매 프레임 그린다
+   ══════════════════════════════════════════════════════════════════════════ */
+// 원뿔대의 옆면만 만든다. 실제 조명은 Spot, 이 메시는 공중의 빛 산란을 표현한다.
+function makeBeam() {
+  const positions=[], normals=[], indices=[], segments=64;
+  for(let i=0;i<=segments;i++) {
+    const a=i/segments*Math.PI*2, x=Math.cos(a), z=Math.sin(a);
+    positions.push(x*1.65,0,z*1.65, x*0.22,4.2,z*0.22);
+    normals.push(x,0,z,x,0,z);
+    if(i<segments) { const k=i*2; indices.push(k,k+1,k+2,k+1,k+3,k+2); }
   }
-
-  // 광원 위치 표시 (자체발광)
-  if (on.l1) draw(sphere, Mat4.multiply(Mat4.translate(sunPos[0], sunPos[1], sunPos[2]),
-                   Mat4.scale(1.5, 1.5, 1.5)), [1.0, 0.52, 0.22], 1, 0, true);
-  if (on.l3) draw(sphere, Mat4.multiply(Mat4.translate(spotPos[0], spotPos[1], spotPos[2]),
-                   Mat4.scale(0.16, 0.16, 0.16)), [1.0, 1.0, 0.94], 1, 0, true);
-
+  return {positions:new Float32Array(positions),normals:new Float32Array(normals),indices:new Uint16Array(indices)};
+}
+const beam=createMesh(makeBeam());
+// 태양 표시 구와 실제 Point 광원이 같은 고정 좌표를 공유한다.
+const SUN_POSITION=[-9,7,-5];
+const enabled={sun:true,ufo:true,sos:true};
+const buttons=Object.fromEntries(['sun','ufo','sos','pause','reset'].map(id=>[id,document.getElementById(id)]));
+let sceneTime=0, previousTime=performance.now(), paused=false;
+function toggle(key) {
+  enabled[key]=!enabled[key];
+  ['sun','ufo','sos'].forEach((k,i)=>{
+    buttons[k].textContent=['태양빛','UFO빔','SOS사인'][i];
+    buttons[k].setAttribute('aria-pressed',String(enabled[k]));
+  });
+}
+['sun','ufo','sos'].forEach(k=>buttons[k].onclick=()=>toggle(k));
+function pause() { paused=!paused; buttons.pause.textContent=paused?'재생':'일시정지'; }
+buttons.pause.onclick=pause;
+buttons.reset.onclick=()=>{Object.assign(cam,{yaw:0.6,pitch:0.28,dist:22});};
+window.addEventListener('keydown',e=>{
+  if(e.repeat || e.target.closest('button,input,select')) return;
+  const k={'1':'sun','2':'ufo','3':'sos'}[e.key];
+  if(k) toggle(k);
+  if(e.code==='Space') { e.preventDefault();pause(); }
+});
+canvas.addEventListener('pointercancel',()=>dragging=false);
+canvas.addEventListener('lostpointercapture',()=>dragging=false);
+// 국제 모스 타이밍: 점 1, 선 3, 부호 사이 1, 문자 사이 3, 반복 사이 7 단위.
+const morse=[];
+['...','---','...'].forEach((letter,i)=>{
+  [...letter].forEach((mark,j)=>{morse.push([mark==='.'?1:3,true]);if(j<2)morse.push([1,false]);});
+  morse.push([i===2?7:3,false]);
+});
+const morseDuration=morse.reduce((a,b)=>a+b[0],0);
+function sosAt(t) {
+  let u=(t/0.18)%morseDuration;
+  for(const [duration,on] of morse) { if(u<duration)return on;u-=duration; }
+  return false;
+}
+function model(x,y,z,sx,sy=sx,sz=sx) {
+  return Mat4.multiply(Mat4.translate(x,y,z),Mat4.scale(sx,sy,sz));
+}
+function draw(mesh,m,color,shininess,ks=0.3,emissive=false,alpha=1,roundGlow=false) {
+  gl.uniformMatrix4fv(U.uModel,false,m);
+  gl.uniformMatrix3fv(U.uNormalMat,false,Mat4.normalFromMat4(m));
+  gl.uniform3fv(U.uBaseColor,color);
+  gl.uniform1f(U.uShininess,shininess);
+  gl.uniform1f(U.uKs,ks);
+  gl.uniform1i(U.uEmissive,emissive);
+  gl.uniform1i(U.uRoundGlow,roundGlow);
+  gl.uniform1f(U.uAlpha,alpha);
+  gl.bindVertexArray(mesh.vao);
+  gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
+}
+function render() {
+  const now=performance.now();
+  if(!paused) sceneTime+=(now-previousTime)/1000;
+  previousTime=now;
+  const t=sceneTime;
+  const w=Math.floor(canvas.clientWidth*devicePixelRatio),h=Math.floor(canvas.clientHeight*devicePixelRatio);
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+  gl.viewport(0,0,w,h);
+  gl.clearColor(0.008,0.012,0.028,1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(program);
+  const cp=Math.cos(cam.pitch);
+  const eye=[Math.sin(cam.yaw)*cp*cam.dist,Math.sin(cam.pitch)*cam.dist+2.7,Math.cos(cam.yaw)*cp*cam.dist];
+  gl.uniformMatrix4fv(U.uView,false,Mat4.lookAt(eye,[0,2.7,0],[0,1,0]));
+  gl.uniformMatrix4fv(U.uProj,false,Mat4.perspective(Math.PI/4,w/h,0.1,200));
+  gl.uniform3fv(U.uViewPos,eye);
+  // 작은 행성은 큰 행성을 공전한다. UFO는 동일한 x,z를 사용해 수직 위를 유지한다.
+  const angle=t*0.16, px=Math.cos(angle)*5.6,pz=Math.sin(angle)*5.6;
+  const ufo=[px,6.1,pz];
+  // 천천히 상승한 뒤 빔을 잠시 비우고 새로운 납치 주기를 시작한다.
+  const cycle=t%18, progress=Math.min(cycle/15,1), visible=cycle<15;
+  const target=[px,2.10+progress*3.65,pz];
+  const flash=visible&&sosAt(t);
+  gl.uniform3fv(U.uSunPos,SUN_POSITION);
+  gl.uniform3fv(U.uUfoPos,ufo);
+  gl.uniform3fv(U.uSosPos,target);
+  gl.uniform1f(U.uSosPower,flash?1:0);
+  gl.uniform1i(U.uSunOn,enabled.sun);
+  gl.uniform1i(U.uUfoOn,enabled.ufo);
+  gl.uniform1i(U.uSosOn,enabled.sos);
+  // 자체발광 태양은 표면 조명 계산을 건너뛰어 어두운 면이 생기지 않는다.
+  draw(sphere,model(...SUN_POSITION,0.85),enabled.sun?[10.0,3.1,0.45]:[0.03,0.009,0.002],1,0,true);
+  draw(plane,Mat4.identity(),[0.12,0.14,0.20],12,0.12);
+  draw(sphere,model(0,1.6,0,1.3),[0.12,0.42,0.16],24,0.25);
+  draw(sphere,model(px,1.6,pz,0.42),[0.52,0.52,0.52],100,0.85);
+  // UFO는 적도 반지름 0.30을 유지하고 세로 반지름만 1/4로 압축한다.
+  draw(sphere,model(px,6.1,pz,0.30,0.075,0.30),enabled.ufo?[0.025,0.32,1.8]:[0.015,0.035,0.08],48,0.8,true,1,true);
+  if(visible) draw(sphere,model(...target,0.115),enabled.sos&&flash?[2.8,0.018,0.008]:[0.055,0.003,0.002],32,0.55,true,1,true);
+  // 불투명 물체 뒤에 빔을 합성한다. 깊이 검사는 유지하고 깊이 쓰기만 끈다.
+  if(enabled.ufo) {
+    gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+    gl.depthMask(false);
+    draw(beam,Mat4.translate(px,1.6,pz),[0.015,0.22,1.8],1,0,true,0.075);
+    gl.depthMask(true);gl.disable(gl.BLEND);
+  }
   gl.bindVertexArray(null);
   requestAnimationFrame(render);
 }
